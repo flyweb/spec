@@ -86,7 +86,7 @@ proceed.
 
 ```language-webidl
 interface FlyWebDiscoveryAPI {
-  Promise discoverNearbyServices(in any type);
+  Promise<FlyWebServices> discoverNearbyServices(in any type);
 }
 ```
 
@@ -114,7 +114,6 @@ information on type strings, their format and interpretation.
 
 TODO: Specify formal steps.
 
-
 # Inspecting nearby Fly Web services
 
 The `FlyWebServices` interface represents a collection of zero or more
@@ -125,9 +124,10 @@ A `FlyWebServices` is the promise result from a call to
 
 ```language-webidl
 interface FlyWebServices {
+  // should we do "readonly maplike<DOMString, FlyWebService>" instead?
   readonly attribute unsigned long length;
   getter FlyWebService (unsigned long index);
-  FlyWebService? getServiceById(DOMString id);
+  FlyWebService? get(DOMString id);
 
   void stopDiscovery();
 
@@ -151,7 +151,7 @@ collection.
 
 Returns the specified `FlyWebService`.
 
-### services.getServiceById(id)
+### services.get(id)
 
 Returns the `FlyWebService` object with the given identifier, or null if
 no service has that identifier.
@@ -161,6 +161,8 @@ no service has that identifier.
 Tells the user agent to stop listening for services of that type.  After this
 method is called, no further `onservicefound` or `onservicelost` events will
 be emitted by this FlyWebServices object.
+
+*Should we rename this to 'close()' to match other APIs with similar "stop consuming resources" behavior?*
 
 ## Events
 
@@ -195,18 +197,11 @@ The `serviceId` represents a unique ID for the lost service.
 # Connecting to a specific Fly Web service
 
 ```language-webidl
-interface FlyWebService {
-  readonly attribute DOMString      id;
-  readonly attribute DOMString      name;
-  readonly attribute DOMString      type;
-  readonly attribute object         config;
-
-  readonly attribute boolean        online;
-
-  Promise establishSession();
-
-  attribute EventHandler            onavailable;
-  attribute EventHandler            onunavailable;
+dictionary FlyWebService {
+  DOMString      id;
+  DOMString      name;
+  DOMString      type;
+  object         config;
 }
 ```
 
@@ -230,109 +225,104 @@ client or a web server.
 A dictionary object containing the configuration options associated with the
 service.
 
-### service.online
+# Connecting to nearby services
 
-The current state of the service, indicating whether it is available or not.
-This state changes with the `onavailable` and `onunavailable` events.
+```language-webidl
+interface FlyWebConnectAPI {
+  Promise<FlyWebConnection> connectToService(in any type);
+  Promise<sequence<FlyWebConnection>> connectToServices(in any type);
+}
+```
 
 ## Methods
 
-### service.establishSession()
+### navigator.connectToService()
 
-```language-js
-promise = service.connect();
+```
+promise = navigator.connectToService(type)
 ```
 
 Immediately returns a Promise representing a session establishment attempt to
-the service.  The user agent then asynchronously begins a session establishment
-protocol with the remote service.
+the service.  The user agent then asynchronously does a discovery of all devices
+matching the specified type.
+
+Once a list of devices has been established, the user is shown UI containing
+this list. The user can then choose which device he/she wants to let the webpage
+to connect to.
+
+Once a device has been selected by the user, the user agent then asynchronously
+begins a session establishment protocol with the remote service.
 
 This protocol may include a pairing activity, as dictated by the session
 construction protocol.  See the `Session Establishment Protocol` which
 describes how sessions are established.
 
-If session establishment is successful, the promise object is resolved.
-The argument type of the resolved promise depends on the type of
-service.  If the service is a HTTP Server, then the promise object is
-resolved with a `FlyWebServerHandle` argument.  If the service is
-an HTTP Client, then the promise object is resolved with a
-`FlyWebClientHandle` argument.
+If session establishment is successful, a new `FlyWebConnection` object is
+created and the promise object is resolved with the object as result.
 
 If the user declines, or an error occurs, the promise object is rejected.
 
-## Events
+### navigator.connectToServices()
 
-## onavailable
-
-Raised when this service re-registers itself or otherwise becomes available
-for connection.  When this event is raised, the `service.online` property is
-set to true.  The event type is `FlyWebServiceAvailableEvent`.
-
-```language-webidl
-interface FlyWebServiceAvailableEvent : Event {
-  readonly attribute DOMString serviceId;
-}
-```
-
-The `serviceId` attribute is the id of the service that became available.
-
-NOTE: The `onavailable` event being raised on a `FlyWebService` may coincide
-with a `onservicefound` event being raised on a `FlyWebServices` object, if
-`stopDiscovery()` has not yet been called.
-
-## onunavailable
-
-
-Raised when this service becomes unavailable or otherwise lost.  When this
-event is raised, the `service.online` property is set to false.  The event
-type is `FlyWebServiceUnavailableEvent`.
-
-```language-webidl
-interface FlyWebServiceUnavailableEvent : Event {
-  readonly attribute DOMString serviceId;
-}
-```
-
-The `serviceId` attribute is the id of the service that became unavailable.
-
-NOTE: The `onunavailable` event being raised on a `FlyWebService` may coincide
-with a `onservicelost` event being raised on a `FlyWebServices` object, if
-`stopDiscovery()` has not yet been called.
-
+Same as `navigator.connectToService()`, except that it allows the user to select
+multiple devices which are returned to the web page.
 
 # Interacting with a connected Fly Web service
 
 ```language-webidl
-interface FlyWebServerHandle {
+enum BinaryType {
+  "blob", "arraybuffer"
+};
+enum FlyWebConnectionState {
+  "connected",
+  "disconnected",
+  "closed"
+};
+
+interface FlyWebConnection {
+  readonly attribute DOMString serviceId;
   readonly attribute DOMString sessionId;
-  readonly attribute DOMString serverURL;
 
-  Promise disconnect();
+  // Base-uri for other party. Null if other party doesn't have http
+  // server support.
+  readonly attribute DOMString? url;
 
-  attribute EventHandler            ondisconnect;
-}
+  // State management
+  readonly attribute FlyWebConnectionState state;
+  attribute EventHandler ondisconnect;
+  attribute EventHandler onreconnect;
+  attribute EventHandler onclose;
+  void close();
 
-interface FlyWebClientHandle {
-  readonly attribute DOMString sessionId;
+  // Communication
+  attribute BinaryType binaryType;
+  attribute EventHandler onmessage;
+  void send(DOMString message);
+  void send(Blob data);
+  void send(ArrayBuffer data);
+  void send(ArrayBufferView data);
+
+  // Http server
+  attribute EventHandler onrequest;
   readonly attribute DOMString userAgent;
-
-  Promise disconnect();
-
-  attribute EventHandler            ondisconnect;
-  attribute EventHandler            onrequest;
 }
 ```
 
 ## Attributes
 
-### handle.sessionId
+### connection.serviceId
+
+A identifier of the service endpoint. This can be used when reconnecting
+to the service.
+
+### connection.sessionId
 
 A unique ID that represents the established session.  This ID will
 not be re-used for any other sessions.
 
-### serverHandle.serverURL
+### connection.url
 
-A "flyweb://" base URL identifying the connected server.  This URL can be
+A "http://...local/" base URL identifying the connected server.  This URL can be
 used to refer to resources on the server, including embedding in tags,
 and in XMLHTTPRequests.
 
@@ -340,52 +330,39 @@ and in XMLHTTPRequests.
 
 The user agent of a connected client.
 
+*Do we need this given that the same information is exposed in Request objects?*
+
 ## Methods
 
-### handle.disconnect()
+### connection.close()
 
-Immediately returns a Promise representing a disconnection attempt from the
-service.  The user agent then asynchronously ends the session.
-
-When the session has been ended, the promise is resolved.  If there is
-an error, the promise is rejected.
+Immediately closes the connection with the other party and transitions the
+`connection.state` to `closed`.
 
 ## Events
 
 ## ondisconnect
 
-This event is raised when the remote endpoint disconnects from the session.
-The event type is `FlyWebDisconnectEvent`.
-
-```language-webidl
-interface FlyWebDisconnectEvent : Event {
-  readonly attribute DOMString sessionId;
-}
-```
-
-The `sessionId` is the id of the session that became disconnected.
+This event is fired when the remote endpoint is disconnected from the session
+due to a network problem. The event type is `Event`.
 
 NOTE: The disconnection may be due to the remote device going out of range,
 or otherwise losing connectivity.
 
+## onreconnect
+
+This event is raised when the remote endpoint is reconnected to the session
+after recovering from a network problem. The event type is `Event`.
+
+## onclose
+
+This event is fired when the remote endpoint explicitly closed the connection 
+and disconnected from the session. The event type is `Event`.
+
 ## onrequest
 
 This event is raised when a request is recieved from a remote client endpoint.
-The event type is 'FlyWebClientRequestEvent'.
-
-```language-webidl
-interface FlyWebClientRequestEvent : Event {
-  readonly attribute DOMString    sessionId;
-  readonly attribute HTTPRequest  request;
-  readonly attribute HTTPResponse response;
-}
-```
-
-The `sessionId` is the id of the session that made the request.  The
-`request` field holds the HTTPRequest object which can be used to
-obtain request data and metadata.  The `response` field holds an
-HTTPResponse object which can be used to send a response to the client.
-
+The event type is ['FetchEvent'](https://slightlyoff.github.io/ServiceWorker/spec/service_worker/index.html#fetch-event-section).
 
 # Advertising a server to nearby consumers
 
@@ -424,8 +401,6 @@ interface FlyWebPublishedServer {
   readonly attribute object config;
 
   attribute EventHandler            onconnect;
-  attribute EventHandler            ondisconnect;
-  attribute EventHandler            onrequest;
 }
 ```
 
@@ -448,47 +423,11 @@ The configuration parameters for the published server.
 ### onconnect
 
 Raised when a new client connects to the published server.
-The event type is 'FlyWebClientConnectEvent'.
+The event type is 'FlyWebConnectEvent'.
 
 ```language-webidl
 interface FlyWebClientConnectEvent : Event {
-  readonly attribute DOMString sessionId;
+  readonly attribute FlyWebConnection connection;
 }
 ```
 
-The `sessionId` field uniquely identifies the web session established by the
-connection.
-
-## ondisconnect
-
-This event is raised when the remote client disconnects from the session.
-The event type is `FlyWebDisconnectEvent`.
-
-```language-webidl
-interface FlyWebDisconnectEvent : Event {
-  readonly attribute DOMString sessionId;
-}
-```
-
-The `sessionId` is the id of the session that became disconnected.
-
-NOTE: The disconnection may be due to the remote client going out of range,
-or otherwise losing connectivity.
-
-## onrequest
-
-This event is raised when a request is recieved from a remote client endpoint.
-The event type is 'FlyWebClientRequestEvent'.
-
-```language-webidl
-interface FlyWebClientRequestEvent : Event {
-  readonly attribute DOMString    sessionId;
-  readonly attribute HTTPRequest  request;
-  readonly attribute HTTPResponse response;
-}
-```
-
-The `sessionId` is the id of the session that made the request.  The
-`request` field holds the HTTPRequest object which can be used to
-obtain request data and metadata.  The `response` field holds an
-HTTPResponse object which can be used to send a response to the client.
