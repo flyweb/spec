@@ -229,8 +229,8 @@ service.
 
 ```language-webidl
 interface FlyWebConnectAPI {
-  Promise<FlyWebConnection> connectToService(in any type);
-  Promise<sequence<FlyWebConnection>> connectToServices(in any type);
+  Promise<FlyWebConnection> connectToService(in any filter);
+  Promise<sequence<FlyWebConnection>> connectToServices(in any filter);
 }
 ```
 
@@ -244,7 +244,15 @@ promise = navigator.connectToService(type)
 
 Immediately returns a Promise representing a session establishment attempt to
 the service.  The user agent then asynchronously does a discovery of all devices
-matching the specified type.
+matching the specified filter.
+
+The 'filter' argument can indicate one or more service types or serviceIds. This
+enables the webpage to request connecting to a specific device, a specific set
+of devices, or devices of a certain type.
+
+*We might want to expand this to request devices with specific capabilities.
+For example printers that can do color printing, or TVs that support hardware
+accellerated WebGL.*
 
 Once a list of devices has been established, the user is shown UI containing
 this list. The user can then choose which device he/she wants to let the webpage
