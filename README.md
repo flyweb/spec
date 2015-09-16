@@ -198,10 +198,17 @@ The `serviceId` represents a unique ID for the lost service.
 
 ```language-webidl
 dictionary FlyWebService {
-  DOMString      id;
-  DOMString      name;
-  DOMString      type;
-  object         config;
+  DOMString id;
+  DOMString name;
+  DOMString deviceName;
+  DOMString origin;
+  DOMString category;
+  DOMString uiUrl;
+
+  boolean http;
+  boolean message;
+
+  object data;
 }
 ```
 
@@ -290,6 +297,7 @@ enum FlyWebConnectionState {
 interface FlyWebConnection {
   readonly attribute DOMString serviceId;
   readonly attribute DOMString sessionId;
+  readonly attribute DOMString? origin; // Website running other peer
 
   // Base-uri for other party. Null if other party doesn't have http
   // server support.
@@ -376,16 +384,46 @@ The event type is ['FetchEvent'](https://slightlyoff.github.io/ServiceWorker/spe
 
 ```language-webidl
 interface FlyWebPublishingAPI {
-  Promise publishServer(DOMString name, object config);
+  Promise<FlyWebPublishedServer> publishServer(DOMString name,
+                                               FlyWebPublishOptions options);
+}
+
+dictionary FlyWebPublishOptions {
+  DOMString category;
+  boolean http;
+  boolean message;
+  DOMString uiUrl; // URL to user interface. Can be different server. Makes
+                   // endpoint show up in browser's "local services" UI.
+  object data; // JSON formatted
+
+  // Provided by browser
+  // DOMString id;
+  // ArrayBuffer? cert; // null if not encrypted
+  // int port;
+  // DOMString deviceName;
+  // DOMString origin;
 }
 ```
+
+*Do we need something to hide server from discovery?*
+
+*Rather than have a separate `uiUrl` property, we could make discoverable
+servers use a specific cetegory and then indicate the url through a property
+in `data`. This might depend on mDNS capabilities since we want it to be
+efficient to query for all servers with a user UI.*
 
 ## Methods
 
 ### navigator.publishServer
 
 ```
-promise = navigator.publishServer(category, name, config);
+promise = navigator.publishServer(name, {
+  category: category,
+  http: true,
+  message: true,
+  uiUrl: startPage,
+  data: { ... }
+});
 ```
 
 Immediately returns a new Promise object.  The user agent asyncronously
@@ -404,9 +442,13 @@ is rejected.
 
 ```language-webidl
 interface FlyWebPublishedServer {
-  readonly attribute DOMString category;
+  readonly attribute DOMString? category;
   readonly attribute DOMString name;
-  readonly attribute object config;
+  readonly attribute Boolean http;
+  readonly attribute Boolean message;
+  readonly attribute Boolean hidden;
+  readonly attribute DOMString? uiUrl;
+  readonly attribute deep_frozen object? config;
 
   attribute EventHandler            onconnect;
 }
