@@ -85,9 +85,14 @@ proceed.
 # Discovering nearby services
 
 ```language-webidl
+dictionary FlyWebFilter {
+  (DOMString or sequence<DOMString) category;
+  (DOMString or sequence<DOMString>) serviceId;
+};
+
 interface FlyWebDiscoveryAPI {
-  Promise<FlyWebServices> discoverNearbyServices(in any type);
-}
+  Promise<FlyWebServices> discoverNearbyServices(optional FlyWebFilter filter);
+};
 ```
 
 ## Methods
@@ -95,24 +100,26 @@ interface FlyWebDiscoveryAPI {
 ### navigator.discoverNearbyServices
 
 ```
-promise = navigator.discoverNearbyServices(type)
+promise = navigator.discoverNearbyServices({ category: category });
+promise = navigator.discoverNearbyServices({ serviceId: [id1, id2] });
 ```
 
 Immediately returns a new Promise object.  The user agent asynchronously
 begins discovering network services that have advertised support for the
-requested service type(s).  The type argument contains one or more
-valid service type tokens that the web page would like to interact with.
+requested service categories.
 
 If the user accepts, the promise object is resolved, with a `FlyWebServices`
 object as its argument.
 
 If the user declines, or an error occurs, the promise object is rejected.
 
-The `type` parameter is either a DOMString, or array of DOMStrings, with
-the prefix 'flyweb:'.  See the 'Service Query Type Strings' section for
-information on type strings, their format and interpretation.
+If a 'filter' argument is provided, only devices that has one of the provided
+categories *or* one of the provided serviceIds will be exposed through the
+`FlyWebServices` object.
 
-TODO: Specify formal steps.
+*Should we throw if no filter is provided? Is there a usecase for scanning
+for any flyweb device beyond looking for vulnerable devices or doing
+fingerprinting?*
 
 # Inspecting nearby Fly Web services
 
@@ -123,7 +130,7 @@ A `FlyWebServices` is the promise result from a call to
 `discoverNearbyServices()`.
 
 ```language-webidl
-interface FlyWebServices {
+interface FlyWebServices : EventTarget {
   // should we do "readonly maplike<DOMString, FlyWebService>" instead?
   readonly attribute unsigned long length;
   getter FlyWebService (unsigned long index);
@@ -131,11 +138,23 @@ interface FlyWebServices {
 
   void stopDiscovery();
 
-  attribute EventHandler           onservicefound;
-  attribute EventHandler           onservicelost;
-}
+  attribute EventHandler onservicefound;
+  attribute EventHandler onservicelost;
+};
 
-FlyWebServices implements EventTarget
+dictionary FlyWebService {
+  DOMString id;
+  DOMString name;
+  DOMString deviceName;
+  DOMString origin;
+  DOMString category;
+  DOMString uiUrl;
+
+  boolean http;
+  boolean message;
+
+  object data;
+};
 ```
 
 ## Attributes
@@ -144,6 +163,56 @@ FlyWebServices implements EventTarget
 
 Returns the current number of indexed properties in the current object's
 collection.
+
+### service.id
+
+A unique identifier for the given service instance.
+
+### service.name
+
+A descriptive, service-selected name for the service.
+
+### service.deviceName
+
+A descriptive, name of the device that the service runs on. This is generally
+only used by services published by user-devices (laptops/smartphones/desktops)
+and left empty for devices with a dedicated service.
+
+### service.origin
+
+For servers that have been created by a webpage and thus running untrusted
+code, this is the origin of that webpage.
+
+### service.category
+
+The stated category of the service. I.e. the FlyWeb protocol which this service
+supports.
+
+### service.uiUrl
+
+If this service provides a web-based UI, then this is the URL of the start page
+of that UI.
+
+If this URL is a relative URL, then the UI will be provided by a http server
+on the device itself, and the URL is relative to the baseURL of the service
+once a connection has been created.
+
+If this URL is absolute, then the UI is provided by the server located at the
+given URL.
+
+### service.http
+
+If true, the service has a http server which can be used once a connection has
+been established.
+
+### service.message
+
+If true, the service supports incoming and outgoing direct messages.
+
+### service.data
+
+A JSON object containing the configuration options associated with the service.
+The contents of this is specific to the category supported by the service.
 
 ## Methods
 
@@ -189,56 +258,18 @@ The event type is `FlyWebServiceLostEvent`.
 ```language-webidl
 interface FlyWebServiceLostEvent : Event {
   readonly attribute DOMString serviceId;
-}
+};
 ```
 
 The `serviceId` represents a unique ID for the lost service.
-
-# Connecting to a specific Fly Web service
-
-```language-webidl
-dictionary FlyWebService {
-  DOMString id;
-  DOMString name;
-  DOMString deviceName;
-  DOMString origin;
-  DOMString category;
-  DOMString uiUrl;
-
-  boolean http;
-  boolean message;
-
-  object data;
-}
-```
-
-## Attributes
-
-### service.id
-
-A unique identifier for the given service instance.
-
-### service.name
-
-A descriptive, service-selected name for the service.
-
-### service.type
-
-One of "client" or "server", identifying whether the service advertises a web
-client or a web server.
-
-### service.config
-
-A dictionary object containing the configuration options associated with the
-service.
 
 # Connecting to nearby services
 
 ```language-webidl
 interface FlyWebConnectAPI {
-  Promise<FlyWebConnection> connectToService(in any filter);
-  Promise<sequence<FlyWebConnection>> connectToServices(in any filter);
-}
+  Promise<FlyWebConnection> connectToService(FlyWebFilter filter);
+  Promise<sequence<FlyWebConnection>> connectToServices(FlyWebFilter filter);
+};
 ```
 
 ## Methods
@@ -246,7 +277,7 @@ interface FlyWebConnectAPI {
 ### navigator.connectToService()
 
 ```
-promise = navigator.connectToService(type)
+promise = navigator.connectToService({ category: category })
 ```
 
 Immediately returns a Promise representing a session establishment attempt to
@@ -255,7 +286,12 @@ matching the specified filter.
 
 The 'filter' argument can indicate one or more service types or serviceIds. This
 enables the webpage to request connecting to a specific device, a specific set
-of devices, or devices of a certain type.
+of devices, or devices of a certain type. Any device which matches any of the
+provided categories, or any of the provided serviceIds will be included in
+the list of found devices.
+
+The filter argument is required. I.e. it is not allowed to request to connect
+to any flyweb service.
 
 *We might want to expand this to request devices with specific capabilities.
 For example printers that can do color printing, or TVs that support hardware
@@ -294,7 +330,7 @@ enum FlyWebConnectionState {
   "closed"
 };
 
-interface FlyWebConnection {
+interface FlyWebConnection : EventTarget {
   readonly attribute DOMString serviceId;
   readonly attribute DOMString sessionId;
   readonly attribute DOMString? origin; // Website running other peer
@@ -311,6 +347,8 @@ interface FlyWebConnection {
   void close();
 
   // Communication
+  readonly attribute boolean messages; // Other party supports message protocol
+                                       // using send/onmessage API below.
   attribute BinaryType binaryType;
   attribute EventHandler onmessage;
   void send(DOMString message);
@@ -321,7 +359,7 @@ interface FlyWebConnection {
   // Http server
   attribute EventHandler onrequest;
   readonly attribute DOMString userAgent;
-}
+};
 ```
 
 ## Attributes
@@ -335,6 +373,11 @@ to the service.
 
 A unique ID that represents the established session.  This ID will
 not be re-used for any other sessions.
+
+### connection.origin
+
+For servers that have been created by a webpage and thus running untrusted
+code, this is the origin of that webpage.
 
 ### connection.url
 
@@ -386,7 +429,7 @@ The event type is ['FetchEvent'](https://slightlyoff.github.io/ServiceWorker/spe
 interface FlyWebPublishingAPI {
   Promise<FlyWebPublishedServer> publishServer(DOMString name,
                                                FlyWebPublishOptions options);
-}
+};
 
 dictionary FlyWebPublishOptions {
   DOMString category;
@@ -402,7 +445,7 @@ dictionary FlyWebPublishOptions {
   // int port;
   // DOMString deviceName;
   // DOMString origin;
-}
+};
 ```
 
 *Do we need something to hide server from discovery?*
@@ -441,17 +484,18 @@ is rejected.
 # Interacting with a remote Fly Web client
 
 ```language-webidl
-interface FlyWebPublishedServer {
+interface FlyWebPublishedServer : EventTarget {
+  readonly attribute DOMString id;
   readonly attribute DOMString? category;
   readonly attribute DOMString name;
   readonly attribute Boolean http;
   readonly attribute Boolean message;
   readonly attribute Boolean hidden;
   readonly attribute DOMString? uiUrl;
-  readonly attribute deep_frozen object? config;
+  readonly attribute deep_frozen object? data;
 
   attribute EventHandler            onconnect;
-}
+};
 ```
 
 ## Attributes
@@ -464,7 +508,19 @@ The category the server is published under.
 
 The display name the server is published under.
 
-### publishedServer.config
+### publishedServer.http
+
+The server supports incoming http requests.
+
+### publishedServer.message
+
+The server supports incoming and outgoing messages.
+
+### publishedServer.uiUrl
+
+The server provides a user UI at the given URL.
+
+### publishedServer.data
 
 The configuration parameters for the published server.
 
@@ -478,6 +534,6 @@ The event type is 'FlyWebConnectEvent'.
 ```language-webidl
 interface FlyWebClientConnectEvent : Event {
   readonly attribute FlyWebConnection connection;
-}
+};
 ```
 
