@@ -86,7 +86,7 @@ proceed.
 
 ```language-webidl
 dictionary FlyWebFilter {
-  (DOMString or sequence<DOMString) category;
+  (DOMString or sequence<DOMString>) category;
   (DOMString or sequence<DOMString>) serviceId;
 };
 
