@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>FlyWeb by flyweb</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="inner">
+        <h1>FlyWeb</h1>
+        <h2>Web API specification for enabling web pages to publish local-area servers</h2>
+        <a href="https://github.com/flyweb/spec" class="button"><small>View project on</small> GitHub</a>
+      </div>
+    </header>
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h1>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Introduction</h1>
+
+<p>This specification aims to allow web applications to connect with and
+communicate to each other over local-area transport protocols. In particular,
+this specification aims to bring the web's client/server application model to
+inter-device communication. The web's application architecture enables an
+application running on a server to dynamically and incrementally send
+application state and logic to an intermittently connected client. This model
+enables a powerful multi-homed application architecture.</p>
+
+<p>In contrast to this power, the web architecture is also constrained.  A server
+must reside on a TCP-based network and must have an IP address. A client can
+only identify a server via a URL it is given. Only clients may initiate
+connections to servers; servers cannot identify and initiate connections to
+clients. A client/server session must be established over a TCP socket and no
+other underlying transport protocol may be used.</p>
+
+<p>This specification aims to lift the above restrictions and allow the web's
+application architecture to work between devices which are proximally located.
+With FlyWeb, both web clients and servers may advertise themselves for
+local-area consumption over local-area transport protocols such as Bluetooth,
+Wi-Fi Direct or over a wired/wireless LAN. Clients may discover and connect to
+servers and vice-versa, servers may discover and connect to locally available
+web clients.</p>
+
+<p>In addition, FlyWeb aims to introduce a web API to allow web pages to host a
+<em>server endpoint</em>. This mechanism is designed as a way to enable cross-device
+communication using no additional infrastructure aside from web browsers.</p>
+
+<h1>
+<a id="conformance" class="anchor" href="#conformance" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Conformance</h1>
+
+<p>TODO</p>
+
+<h1>
+<a id="dependencies" class="anchor" href="#dependencies" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Dependencies</h1>
+
+<p>TODO</p>
+
+<h1>
+<a id="terminology" class="anchor" href="#terminology" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Terminology</h1>
+
+<p>This web API is structured around a process for establishing a web session
+between two computational endpoints where one endpoint serves as a web client
+and the other as a web server.</p>
+
+<h3>
+<a id="client-endpoint" class="anchor" href="#client-endpoint" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Client endpoint</h3>
+
+<p>A <em>client endpoint</em> is a device or program on that device which plays the role
+of a web client in a FlyWeb session. This endpoint is able to receive and
+execute web applications written using web technologies such as HTML, JavaScript
+and CSS. The canonical <em>client endpoint</em> is a web browser.</p>
+
+<h3>
+<a id="server-endpoint" class="anchor" href="#server-endpoint" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Server endpoint</h3>
+
+<p>A <em>server endpoint</em> is a device or program on that device which plays the role
+of a web server in a FlyWeb session. This endpoint is able to serve web
+applications using the HTTP protocol.</p>
+
+<p>To establish a FlyWeb session, the <em>client endpoint</em> performs a local-area
+discovery (at the direction of the user) over supported underlying transports
+(e.g. mDNS over Wi-Fi). The discovery reveals the presence of any local-area
+<em>server endpoints</em> which are presented to the user. The user then selects
+a <em>server endpoint</em> to connect to, at which point the client performs whatever
+transport-specific steps are required to set up a web session with the server.
+It then navigates to a page on the server which establishes an application
+session between the user on the <em>client endpoint</em> and the service exposed by
+the <em>server endpoint</em>.</p>
+
+<h1>
+<a id="security-and-privacy-considerations" class="anchor" href="#security-and-privacy-considerations" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Security and privacy considerations</h1>
+
+<p>The web API defined in this specification can be used to find and connect to
+devices and services near the user. This specification uses two mechanisms
+to ensure that services are not inadvertently exposed to potentially
+malicious code executing on web pages.</p>
+
+<p>Firstly, a <em>server endpoint</em> advertises its services with explicit metadata
+that indicates its willingness to serve as a FlyWeb <em>server endpoint</em>. Other
+non-FlyWeb services which are advertised using similar mechanisms cannot thus
+be mistaken for a FlyWeb service.</p>
+
+<p>Secondly, an endpoint may force a pairing protocol at the point of session
+establishment. This protocol may take various forms including entering a
+secret code, scanning a QR code displayed on a screen, or a synchronized
+button press. These pairing protocols are similar to Bluetooth device pairing
+protocols and are already familiar to users.</p>
+
+<h1>
+<a id="advertising-a-server" class="anchor" href="#advertising-a-server" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Advertising a server</h1>
+
+<p>FlyWeb allows web pages to expose a <em>server endpoint</em> using a web API:</p>
+
+<pre lang="language-webidl"><code>interface FlyWebPublishingAPI {
+  Promise&lt;FlyWebPublishedServer&gt; publishServer(DOMString name,
+                                               FlyWebPublishOptions options);
+};
+
+dictionary FlyWebPublishOptions {
+  DOMString? uiUrl = null; // URL to user interface. Can be different server. Makes
+                           // endpoint show up in browser's "local services" UI.
+                           // If relative, resolves against the root of the server.
+};
+</code></pre>
+
+<p><em>Do we need something to hide server from discovery?</em></p>
+
+<p><em>Rather than have a separate <code>uiUrl</code> property, we could make discoverable
+servers use a specific category and then indicate the url through a property
+in <code>data</code>. This might depend on mDNS capabilities since we want it to be
+efficient to query for all servers with a user UI.</em></p>
+
+<h1>
+<a id="methods" class="anchor" href="#methods" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Methods</h1>
+
+<h3>
+<a id="navigatorpublishserver" class="anchor" href="#navigatorpublishserver" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>navigator.publishServer</h3>
+
+<pre><code>promise = navigator.publishServer(name, {...options...});
+</code></pre>
+
+<p>Immediately returns a new <code>Promise</code> object. The user agent asynchronously
+begins the process of establishing a published service under the given
+name. The user agent SHOULD prompt the user before advertising a service
+from a web page allowing the user to prevent the page from advertising
+services to nearby clients.</p>
+
+<p>If the user declined the publishing or an error occurs, the <code>Promise</code>
+is rejected.</p>
+
+<p>If the publishing is successful, the <code>Promise</code> is resolved with a
+<code>FlyWebPublishedServer</code> object:</p>
+
+<pre lang="language-webidl"><code>interface FlyWebPublishedServer : EventTarget {
+  readonly attribute DOMString name;
+  readonly attribute DOMString? uiUrl;
+
+  void close();
+
+  attribute EventHandler onclose;
+  attribute EventHandler onfetch;
+  attribute EventHandler onwebsocket;
+};
+</code></pre>
+
+<h1>
+<a id="attributes" class="anchor" href="#attributes" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Attributes</h1>
+
+<h3>
+<a id="publishedservername" class="anchor" href="#publishedservername" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>publishedServer.name</h3>
+
+<p>The display name the server is published under.</p>
+
+<h3>
+<a id="publishedserveruiurl" class="anchor" href="#publishedserveruiurl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>publishedServer.uiUrl</h3>
+
+<p>The URL to the published server that clients should connect to.</p>
+
+<h1>
+<a id="events" class="anchor" href="#events" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Events</h1>
+
+<h3>
+<a id="onclose" class="anchor" href="#onclose" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>onclose</h3>
+
+<p>Called when the published server is closed, for example because the
+<code>close()</code> method is called on the <code>FlyWebPublishedServer</code> object.</p>
+
+<h3>
+<a id="onfetch" class="anchor" href="#onfetch" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>onfetch</h3>
+
+<p>Called when a client of the published server sends an HTTP request.
+The event type is 'FlyWebFetchEvent':</p>
+
+<pre lang="language-webidl"><code>interface FlyWebFetchEvent : Event {
+  [SameObject] readonly attribute Request request;
+
+  [Throws]
+  void respondWith(Promise&lt;Response&gt; r);
+};
+</code></pre>
+
+<p>The <code>request</code> attribute holds a DOM <code>Request</code> object describing the
+details of the HTTP request.</p>
+
+<p>The <code>respondWith</code> method on the event can accept a <code>Promise</code> for
+resolving a <code>Response</code> object to service the HTTP request.</p>
+
+<h3>
+<a id="onwebsocket" class="anchor" href="#onwebsocket" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>onwebsocket</h3>
+
+<p>Called when a client of the published server establishes a new WebSocket
+connection request. The event type is 'FlyWebWebSocketEvent':</p>
+
+<pre lang="language-webidl"><code>interface FlyWebWebSocketEvent : Event {
+  [SameObject] readonly attribute Request request;
+
+  [Throws]
+  WebSocket accept(optional DOMString protocol);
+
+  [Throws]
+  void respondWith(Promise&lt;Response&gt; r);
+};
+</code></pre>
+
+<p>The <code>request</code> attribute holds a DOM <code>Request</code> object describing the
+details of the WebSocket request.</p>
+
+<p>The <code>accept</code> method on the event can be used to accept the WebSocket
+request. It immediately returns a WebSocket instance which can be used
+to communicate with the client.</p>
+
+<p>The <code>respondWith</code> method on the event can accept a <code>Promise</code> for
+resolving a <code>Response</code> object to service the WebSocket request.</p>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/flyweb/spec/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/flyweb/spec/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/flyweb/spec"></a> is maintained by <a href="https://github.com/flyweb">flyweb</a>.</p>
+
+          <p>This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
+    </div>
+
+  
+  </body>
+</html>
