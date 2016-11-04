@@ -33,7 +33,13 @@ TODO
 
 # Dependencies
 
-TODO
+FlyWeb uses [`Promise`][Promise reference] objects as defined in the [ES6
+specification][Promise specification].
+
+FlyWeb's API for hosting a server endpoint from a webpage uses the classes
+defined in the [Fetch Standard] and the [WebSocket specification] to represent
+both typical HTTP traffic [to][Fetch API request] and [from][Fetch API response]
+the page-hosted server as well as [bidirectional, persistent connections][WebSocket interface].
 
 # Terminology
 
@@ -170,11 +176,11 @@ interface FlyWebFetchEvent : Event {
 };
 ```
 
-The `request` attribute holds a DOM `Request` object describing the
-details of the HTTP request.
+The `request` attribute holds a DOM [`Request`][Fetch API request] object
+describing the details of the HTTP request.
 
 The `respondWith` method on the event can accept a `Promise` for
-resolving a `Response` object to service the HTTP request.
+resolving a [`Response`][Fetch API response] object to service the HTTP request.
 
 ### onwebsocket
 
@@ -193,12 +199,21 @@ interface FlyWebWebSocketEvent : Event {
 };
 ```
 
-The `request` attribute holds a DOM `Request` object describing the
+The `request` attribute holds a DOM [`Request`][Fetch API Request] object describing the
 details of the WebSocket request.
 
 The `accept` method on the event can be used to accept the WebSocket
-request. It immediately returns a WebSocket instance which can be used
+request. It immediately returns a [`WebSocket`][WebSocket interface] instance which can be used
 to communicate with the client.
 
 The `respondWith` method on the event can accept a `Promise` for
-resolving a `Response` object to service the WebSocket request.
+resolving a [`Response`][Fetch API Response] object to service the WebSocket request.
+
+
+[Fetch Standard]: https://fetch.spec.whatwg.org/
+[Fetch API request]: https://fetch.spec.whatwg.org/#request-class
+[Fetch API response]: https://fetch.spec.whatwg.org/#response-class
+[WebSocket specification]: https://html.spec.whatwg.org/multipage/comms.html#network
+[WebSocket interface]: https://html.spec.whatwg.org/multipage/comms.html#the-websocket-interface
+[Promise specification]: http://www.ecma-international.org/ecma-262/6.0/#sec-promise-objects
+[Promise reference]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
